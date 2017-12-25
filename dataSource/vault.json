@@ -1,0 +1,10 @@
+{
+  "name" : "vault",
+  "properties" : {
+    "url" : "<database url here>",
+    "username" : "<user name>",
+    "password" : "<password>"
+  },
+  "type" : "mysql | postgres",
+  "uid" : "DataSourceM.vault"
+}
