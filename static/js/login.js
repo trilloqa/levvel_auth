@@ -2,21 +2,13 @@
 
   "use strict";
   Trillo.Login = function(viewSpec) {
-    $.ajaxSetup({
-      cache : false,
-      beforeSend : function(xhr) {
-        Trillo.setCSRFCookieHeader(xhr, true);
-        if (Trillo.orgName) {
-          xhr.setRequestHeader('x-org-name', Trillo.orgName);
-        }
-        if (Trillo.appName) {
-          xhr.setRequestHeader('x-app-name', Trillo.appName);
-        }
-      }
-    });
     var appContext = Trillo.appContext || {};
     Trillo.appName = appContext.appName;
     Trillo.orgName = appContext.orgName;
+    Trillo.appServedByDt = appContext.dtServerInst === "true";
+    var authChoice = appContext.authChoice;
+    $(".js-hide-on-auth-choice-" + authChoice).addClass("trillo-display-none");
+    $(".js-show-on-auth-choice-" + authChoice).removeClass("trillo-display-none");
     // if the following line is commented then the login will follow
     // form submission and the server will handle is properly (except one caveat
     // that the server will not
@@ -51,21 +43,58 @@
         return;
       }
     }
+    if (Trillo.runtimeUrl) {
+      this.getAuthState();
+    } else {
+      this._doLogin('/ajaxLogin');
+    }
+  };
+
+  Login._doLogin = function(loginUrl, p) {
     var $e = $("form");
-    var data = $e.serializeArray();
-    $.ajax('/ajaxLogin', {
+    var data = p || {};
+    var l = $e.serializeArray();
+    $.each(l, function() {
+      data[this.name] = this.value || '';
+    });
+    $.ajax(loginUrl, {
       'method' : 'post',
-      'data' : data
+      'data' : Trillo.stringify(data)
     }).done(function(result) {
       $('body').removeClass('login-failed');
-      var url = Trillo.appContext ? Trillo.appContext.redirectPath : null;
+      var url = result.redirectUrl || (Trillo.appContext ? Trillo.appContext.redirectPath : null);
       if (!url) {
-        url = result.redirectPath || "/";
+        url = result.redirectPath;
+        if (!url) {
+          url = Trillo.appContext ? Trillo.appContext.homeUrl : "/";
+        }
       }
       window.location.replace(url);
     }).fail(function() {
       $('body').addClass('login-failed');
     });
+  };
+
+  Login.getAuthState = function() {
+    $.ajax({
+      url : "/_service/um/authState",
+      type : 'post',
+      data : Trillo.stringify({
+        redirectUrl : Trillo.appContext ? Trillo.appContext.redirectPath : "/"
+      }),
+      contentType : "application/json",
+      notCORS : true,
+      x_org_name : "collager"
+    }).done($.proxy(this._getAuthState, this));
+  };
+
+  Login._getAuthState = function(result) {
+    if (result.userObject) {
+      this._doLogin("/ajaxLogin", {
+        client_id : "1",
+        state : result.userObject
+      });
+    }
   };
 
   Login.validateSessionToken = function() {
@@ -80,9 +109,9 @@
         contentType : "application/json"
       }).done(function(result) {
         $('body').removeClass('login-failed');
-        var url = Trillo.appContext ? Trillo.appContext.redirectPath : null;
+        var url = result.redirectUrl || (Trillo.appContext ? Trillo.appContext.redirectPath : null);
         if (!url) {
-          url = result.redirectUrl || result.redirectPath;
+          url = result.redirectPath;
           if (!url) {
             url = Trillo.appContext ? Trillo.appContext.homeUrl : "/";
           }

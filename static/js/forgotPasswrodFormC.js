@@ -19,7 +19,7 @@
 
   ForgotPasswordFormC.afterPost = function(result, view) {
     if (result.status === "failed") {
-      Controller.afterPost.call(this, result);
+      Controller.afterPost.call(this, result, view);
     } else {
       $(".forgot-password-form").addClass("trillo-display-none");
       $(".forgot-password-message").removeClass("trillo-display-none");
